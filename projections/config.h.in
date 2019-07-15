@@ -1,0 +1,8 @@
+#ifndef PROJECTIONS_CONFIG_H
+#define PROJECTIONS_CONFIG_H
+
+#include <ecvl/core.h>
+
+const filesystem::path kSourceDir("${CMAKE_SOURCE_DIR}");
+
+#endif /* PROJECTIONS_CONFIG_H */
