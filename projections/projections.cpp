@@ -638,10 +638,14 @@ void MyFrame::OnLoad(wxCommandEvent& event)
     label_sizer_yz->Add(yz);
     label_sizer_xz->Add(xz);
 
+    wxString test_str = "WASD: change the volume orientation.\nR or SPACE: start/stop rotation around y axis.";
+    wxStaticText* text = new wxStaticText(slider_panel, wxID_ANY, test_str, wxPoint(20, 150));
+
     wxBoxSizer *vertical = new wxBoxSizer(wxVERTICAL);
     vertical->Add(label_sizer_xy, 0, wxALL, 10);
     vertical->Add(label_sizer_yz, 0, wxALL, 10);
     vertical->Add(label_sizer_xz, 0, wxALL, 10);
+    vertical->Add(text, 0, wxALL, 10);
     slider_panel->SetSizer(vertical);
 
     glPane = new BasicGLPane(container, args, frame_img_);
