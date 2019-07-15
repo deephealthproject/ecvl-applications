@@ -93,10 +93,9 @@ endif()
 # END: static/dinamic runtime										
 #--------------------------------------------------------------------------------------------------------
 
-
 add_executable(projections "projections.cpp")
 
-find_package(ECVL REQUIRED)
+find_package(ECVL REQUIRED gui)
 target_link_libraries(projections ${ECVL_LIBRARIES})
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
