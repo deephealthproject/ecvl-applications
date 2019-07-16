@@ -73,7 +73,7 @@ endif()
 #--------------------------------------------------------------------------------------------------------
 # BEGIN: static/dinamic runtime 												
 #--------------------------------------------------------------------------------------------------------
-set(ECVL_wxApp_STATIC ON CACHE BOOL "Whether to build static or dinamic libraries")
+set(ECVL_Viewer_STATIC ON CACHE BOOL "Whether to build static or dinamic libraries")
 
 if(MSVC)
     if(ECVL_Viewer_STATIC)
@@ -94,7 +94,7 @@ endif()
 
 add_executable(ECVL_Viewer_pj "viewer.cpp")
 
-find_package(ECVL)
+find_package(ECVL REQUIRED gui))
 if(ECVL_FOUND)   
 	target_link_libraries(ECVL_Viewer_pj ${ECVL_LIBRARIES})
 endif()
