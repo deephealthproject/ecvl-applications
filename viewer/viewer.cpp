@@ -206,7 +206,9 @@ void ChildFrame::OnOk(wxCommandEvent& event)
         c_parent->img_panels.push_back(c_parent->original_panel);
         c_parent->sizers.push_back(image_sizer);
         c_parent->panels.push_back(c_parent->base_panel);
-        c_parent->notebook->AddPage(c_parent->base_panel, c_parent->names[c_parent->current_id] + " - Modified", true);
+        std::string filename = c_parent->names[c_parent->current_id] + " - Modified";
+        c_parent->notebook->AddPage(c_parent->base_panel, filename, true);
+        c_parent->names.push_back(filename);
         c_parent->frameids = false;
         this->Destroy();
     }
