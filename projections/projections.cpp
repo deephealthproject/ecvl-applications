@@ -51,14 +51,15 @@ class BasicGLPane : public wxGLCanvas
 {
     wxGLContext* m_context;
     wxTimer timer;
-    ecvl::Shader ourShader, textShader;
-    unsigned int VBO3D, VAO3D, EBO, texture3D, texture2D;
-    const float radius = 0.7f;
+    ecvl::Shader ourShader, textShader, squareShader;
+    unsigned int VBO3D, VAO3D, EBO, VBOSQ, VAOSQ, EBOSQ, texture3D, texture2D;
+    const float radius = 0.5f;
     clock_t t;
     glm::mat4 view;
     glm::mat4 orientation;
     glm::mat4 ruota;
     glm::mat4 scala;
+    glm::mat4 ruotasq;
     bool enable_rotation;
     float fps = 30;
     float period = 5;
@@ -74,6 +75,7 @@ class BasicGLPane : public wxGLCanvas
     float scale_w;
     float scale_h;
     float scale_d;
+    bool enable_squares;
 
     std::string vertex_shader =
         "#version 330 core\n"
@@ -149,7 +151,39 @@ class BasicGLPane : public wxGLCanvas
         "void main()"
         "{"
         "    FragColor = texture(ourTexture, TexCoord / 8.2 + glyphsCoord);"
+        "    if (FragColor.x < 0.1 && FragColor.y < 0.1 && FragColor.z < 0.1) {"
+        "        FragColor.w = 0.f;"
+        "    }"
         "}";
+
+    std::string square_vertex_shader =
+        "#version 330 core\n"
+        "layout(location = 0) in vec2 xyPos;\n"
+
+        "uniform float zPos;\n"
+        "uniform mat4 orientation;\n"
+        "uniform mat4 model;\n"
+        "uniform mat4 projection;\n"
+        "uniform mat4 view;\n"
+
+        "void main()\n"
+        "{"
+        "    gl_Position = projection * view * model * orientation * vec4(xyPos, zPos, 1.0);"
+        "}";
+
+    std::string square_fragment_shader =
+        "#version 330 core\n"
+        "out vec4 FragColor;\n"
+
+        "uniform mat4 ruota;\n"
+        "uniform mat4 scala;\n"
+        "uniform vec3 color;\n"
+
+        "void main()"
+        "{"
+        "    FragColor = vec4(color, 0.6);"
+        "}";
+
 
 public:
     BasicGLPane(wxPanel* parent, int* args, const ecvl::Image& img);
@@ -225,7 +259,14 @@ BasicGLPane::BasicGLPane(wxPanel* parent, int* args, const Image& src_img) :
         0, 1, 2,
         0, 2, 3,
     };
+    unsigned int indices2D[] = {
+    0, 1, 
+    1, 2,
+    2, 3,
+    3, 0
+    };
 
+    // All the stuff except for colored squares
     glGenVertexArrays(1, &VAO3D);
     glGenBuffers(1, &VBO3D);
     glGenBuffers(1, &EBO);
@@ -243,6 +284,24 @@ BasicGLPane::BasicGLPane(wxPanel* parent, int* args, const Image& src_img) :
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices3D), indices3D, GL_STATIC_DRAW);
+
+    // Colored squares
+    glGenVertexArrays(1, &VAOSQ);
+    glGenBuffers(1, &VBOSQ);
+    glGenBuffers(1, &EBOSQ);
+
+    glBindVertexArray(VAOSQ);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBOSQ);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices3D), vertices3D, GL_STATIC_DRAW);
+
+    // position attribute
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBOSQ);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices2D), indices2D, GL_STATIC_DRAW);
+
 
     width = img.dims_[0];
     height = img.dims_[1];
@@ -352,6 +411,8 @@ BasicGLPane::BasicGLPane(wxPanel* parent, int* args, const Image& src_img) :
 
     textShader.init(text_vertex_shader, text_fragment_shader);
 
+    squareShader.init(square_vertex_shader, square_fragment_shader);
+
     orientation = glm::mat4(1.f);
     ourShader.setMat4("orientation", orientation);
 
@@ -359,13 +420,13 @@ BasicGLPane::BasicGLPane(wxPanel* parent, int* args, const Image& src_img) :
     enable_rotation = false;
 
     view = glm::mat4(1.0f);
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, 0.f));
+    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -4.3f));
     //view = glm::rotate(view, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
     ourShader.setMat4("view", view);
 
     glm::mat4 projection;
-    //projection = glm::perspective(glm::radians(35.f), (float)GetSize().x / (float)GetSize().y, 0.1f, 100.0f);  // projective
-    projection = glm::ortho(-1.f - 2/n, 1.f + 2 / n, -1.f - 1 / n - 2/n, 1.f + 1 / n);                                                          // orthographic
+    projection = glm::perspective(glm::radians(35.f), (float)GetSize().x / (float)GetSize().y, 0.1f, 10.0f);  // projective
+    //projection = glm::ortho(-1.f - 2/n, 1.f + 2 / n, -1.f - 1 / n - 2/n, 1.f + 1 / n);                                                          // orthographic
     ourShader.setMat4("projection", projection);
 
     ourShader.setFloat("radius", radius);
@@ -374,6 +435,15 @@ BasicGLPane::BasicGLPane(wxPanel* parent, int* args, const Image& src_img) :
     textShader.use();
     textShader.setMat4("projection", projection);
     textShader.setMat4("view", view);
+
+    squareShader.use();
+    squareShader.setMat4("projection", projection);
+    squareShader.setMat4("view", view);
+    ourShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(-distance, +distance, 0.f)));
+
+    ruotasq = glm::mat4(1.f);
+
+    enable_squares = true;
 
     // To avoid flashing on MSW
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
@@ -407,15 +477,18 @@ void BasicGLPane::Render(wxPaintEvent& evt)
     glBindTexture(GL_TEXTURE_3D, texture3D);
 
     ourShader.use();
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 
     if (enable_rotation) {
         ruota = glm::rotate(ruota, glm::radians(360.f / (period * fps)), glm::vec3(0.0f, 1.0f, 0.0f));
+        ruotasq = glm::rotate(glm::mat4(1.f), -glm::radians(360.f / (period * fps)), glm::vec3(0.0f, 1.0f, 0.0f)) * ruotasq;
     }
     ourShader.setMat4("ruota", ruota);
     ourShader.setBool("useAlpha", true);
     ourShader.setMat4("scala", scala);
     ourShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(-distance, +distance, 0.f)));
-    ourShader.setMat4("orientation", orientation);
+    ourShader.setMat4("orientation", glm::mat4(1.f));
     
     const int slices = 200;
 
@@ -428,9 +501,7 @@ void BasicGLPane::Render(wxPaintEvent& evt)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);   
     }
 
-
     // Sections
-    
     ourShader.setBool("useAlpha", false);
     ourShader.setMat4("scala", glm::mat4(1.f));
     ourShader.setMat4("orientation", glm::mat4(1.f));
@@ -439,6 +510,7 @@ void BasicGLPane::Render(wxPaintEvent& evt)
     ourShader.setMat4("scala", glm::scale(glm::mat4(1.f), glm::vec3(scale_w, scale_h, 1.f)));
     ourShader.setFloat("zTex", (1.f / depth) * xy_value - 0.5 + (1.f / (2 * depth)));
     ourShader.setFloat("zPos", 0);
+    ourShader.setMat4("orientation", glm::mat4(1.0f));    
     ourShader.setMat4("ruota", glm::mat4(1.0f));    
     ourShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(+distance, +distance, 0.f)));
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); 
@@ -447,7 +519,8 @@ void BasicGLPane::Render(wxPaintEvent& evt)
     ourShader.setMat4("scala", glm::scale(glm::mat4(1.f), glm::vec3(1.f, scale_h, scale_d)));
     ourShader.setFloat("zTex", (1.f / width) * yz_value - 0.5 + (1.f / (2 * width)));
     ourShader.setFloat("zPos", 0);
-    ourShader.setMat4("ruota", glm::rotate(glm::mat4(1.f), glm::radians(90.f), glm::vec3(0.0f, 1.0f, 0.0f)));
+    ourShader.setMat4("orientation", glm::mat4(1.0f));
+    ourShader.setMat4("ruota", glm::rotate(glm::mat4(1.0f), glm::radians(90.f), glm::vec3(0.0f, 1.0f, 0.0f)));
     ourShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(-distance, -distance, 0.f)));
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     
@@ -455,11 +528,70 @@ void BasicGLPane::Render(wxPaintEvent& evt)
     ourShader.setMat4("scala", glm::scale(glm::mat4(1.f), glm::vec3(scale_w, 1.f, scale_d)));
     ourShader.setFloat("zTex", (1.f / height) * xz_value - 0.5 + (1.f / (2 * height)));
     ourShader.setFloat("zPos", 0);
-    ourShader.setMat4("ruota", glm::rotate(glm::mat4(1.f), glm::radians(90.f), glm::vec3(1.0f, 0.0f, 0.0f)));
+    ourShader.setMat4("orientation", glm::mat4(1.0f));
+    ourShader.setMat4("ruota", glm::rotate(glm::mat4(1.0f), glm::radians(90.f), glm::vec3(1.0f, 0.0f, 0.0f)));
     ourShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(+distance, -distance, 0.f)));
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
+    // Squares
+    if (enable_squares) {
+        glBindVertexArray(VAOSQ);
+        //glBindVertexArray(VAO3D);
+
+        squareShader.use();
+        squareShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(-distance, +distance, 0.f)));
+
+        // asse z
+        squareShader.setFloat("zPos", (1.f / depth) * xy_value + (1.f / (2 * depth)) - 0.5);
+        squareShader.setMat4("orientation", ruotasq * glm::scale(glm::mat4(1.f), glm::vec3(1.f / scale_w, 1.f / scale_h, 1.f / scale_d)));
+        squareShader.setVec3("color", glm::vec3(1.f, 0, 0));
+        glDrawElements(GL_LINES, 8, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // asse x
+        squareShader.setFloat("zPos", (1.f / width) * yz_value - 0.5 + (1.f / (2 * width)));
+        squareShader.setMat4("orientation", ruotasq
+            * glm::rotate(glm::mat4(1.f), glm::radians(90.f), glm::vec3(0.0f, 1.0f, 0.0f))
+            * glm::scale(glm::mat4(1.f), glm::vec3(1.f / scale_d, 1.f / scale_h, 1.f / scale_w)));
+        squareShader.setVec3("color", glm::vec3(0, 1.f, 0));
+        glDrawElements(GL_LINES, 8, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // asse y
+        squareShader.setFloat("zPos", (1 - ((1.f / height) * xz_value + (1.f / (2 * height)))) - 0.5);
+        squareShader.setMat4("orientation", ruotasq
+            * glm::rotate(glm::mat4(1.f), glm::radians(90.f), glm::vec3(1.0f, 0.0f, 0.0f))
+            * glm::scale(glm::mat4(1.f), glm::vec3(1.f / scale_w, 1.f / scale_d, 1.f / scale_h)));
+        squareShader.setVec3("color", glm::vec3(0, 0, 1.f));
+        glDrawElements(GL_LINES, 8, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // Squares around sections
+        squareShader.setFloat("zPos", 0);
+        squareShader.setMat4("orientation", glm::mat4(1.f));
+
+        squareShader.setVec3("color", glm::vec3(1.f, 0, 0));
+        squareShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(+distance, +distance, 0.f)));
+        squareShader.setMat4("orientation", glm::scale(glm::mat4(1.f), glm::vec3(1.f / scale_w, 1.f / scale_h, 1.f)));
+        glDrawElements(GL_LINES, 8, GL_UNSIGNED_INT, 0);
+
+        squareShader.setVec3("color", glm::vec3(0, 01.f, 0));
+        squareShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(-distance, -distance, 0.f)));
+        squareShader.setMat4("orientation", glm::scale(glm::mat4(1.f), glm::vec3(1.f / scale_d, 1.f / scale_h, 1.f)));
+        glDrawElements(GL_LINES, 8, GL_UNSIGNED_INT, 0);
+
+        squareShader.setVec3("color", glm::vec3(0, 0, 1.f));
+        squareShader.setMat4("model", glm::translate(glm::mat4(1.0f), glm::vec3(+distance, -distance, 0.f)));
+        squareShader.setMat4("orientation", glm::scale(glm::mat4(1.f), glm::vec3(1.f / scale_w, 1.f / scale_d, 1.f)));
+        glDrawElements(GL_LINES, 8, GL_UNSIGNED_INT, 0);
+    }
+
+    // Text
+    glBindVertexArray(VAO3D);
+
     textShader.use();
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 
     //view = glm::mat4(1.0f);
 
@@ -501,30 +633,52 @@ void BasicGLPane::MouseWheelMoved(wxMouseEvent& evt) {
 
     int mouse_rotation = evt.GetWheelRotation();
     view = glm::translate(view, glm::vec3(0.0f, 0.0f, (float)mouse_rotation / 1000));
+    textShader.use();
     textShader.setMat4("view", view);
+    ourShader.use();
     ourShader.setMat4("view", view);
+    squareShader.use();
+    squareShader.setMat4("view", view);
 }
 
 void BasicGLPane::KeyReleased(wxKeyEvent& evt) {
     ourShader.use();
     int key_code = evt.GetKeyCode();
-    if (key_code == 82 /* R */ || key_code == WXK_SPACE) {
+    if (key_code == WXK_SPACE) {
         enable_rotation = !enable_rotation;
     }
+    else if (key_code == 82 /* R */) {
+        orientation = glm::mat4(1.f);
+        ourShader.setMat4("orientation", orientation);
+        ruota = glm::mat4(1.f);
+        ourShader.setMat4("ruota", ruota);
+        ruotasq = glm::mat4(1.f);
+    }
+    else if (key_code == 84 /* T */) {
+        enable_squares = !enable_squares;
+    }
     else if (key_code == 87 /* W */) {
-        orientation = glm::rotate(orientation, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
+        orientation = glm::rotate(orientation, glm::radians(-90.f), glm::vec3(1.f, 0.f, 0.f));
+        ruota = glm::rotate(ruota, glm::radians(-90.f), glm::vec3(1.f, 0.f, 0.f));
+        ruotasq = glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(1.f, 0.f, 0.f)) * ruotasq;
         ourShader.setMat4("orientation", orientation);
     }
     else if (key_code == 83 /* S */) {
-        orientation = glm::rotate(orientation, glm::radians(-90.f), glm::vec3(1.f, 0.f, 0.f));
+        orientation = glm::rotate(orientation, glm::radians(+90.f), glm::vec3(1.f, 0.f, 0.f));
+        ruota = glm::rotate(ruota, glm::radians(+90.f), glm::vec3(1.f, 0.f, 0.f));
+        ruotasq = glm::rotate(glm::mat4(1.f), glm::radians(+90.f), glm::vec3(1.f, 0.f, 0.f)) * ruotasq;
         ourShader.setMat4("orientation", orientation);
     }
     else if (key_code == 65 /* A */) {
         orientation = glm::rotate(orientation, glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+        ruota = glm::rotate(ruota, glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+        ruotasq = glm::rotate(glm::mat4(1.f), glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f)) * ruotasq;
         ourShader.setMat4("orientation", orientation);
     }
     else if (key_code == 68 /* D */) {
         orientation = glm::rotate(orientation, glm::radians(-90.f), glm::vec3(0.f, 0.f, 1.f));
+        ruota = glm::rotate(ruota, glm::radians(-90.f), glm::vec3(0.f, 0.f, 1.f));
+        ruotasq = glm::rotate(glm::mat4(1.f), glm::radians(-90.f), glm::vec3(0.f, 0.f, 1.f)) * ruotasq;
         ourShader.setMat4("orientation", orientation);
     }
 }
@@ -638,7 +792,10 @@ void MyFrame::OnLoad(wxCommandEvent& event)
     label_sizer_yz->Add(yz);
     label_sizer_xz->Add(xz);
 
-    wxString test_str = "WASD: change the volume orientation.\nR or SPACE: start/stop rotation around y axis.";
+    wxString test_str = "WASD: rotate the volume around x and z axis.\n"
+        "SPACE: toggle rotation around y axis.\n"
+        "R: reset orientation.\n"
+        "T: toggle squares visualization.\n";
     wxStaticText* text = new wxStaticText(slider_panel, wxID_ANY, test_str, wxPoint(20, 150));
 
     wxBoxSizer *vertical = new wxBoxSizer(wxVERTICAL);
