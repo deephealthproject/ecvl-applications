@@ -556,7 +556,7 @@ void MyFrame::OnModifyInFrame(wxCommandEvent& event)
             if (tmp.elemtype_ != DataType::int8)
                 CopyImage(tmp, tmp2, DataType::int8);
             tmp = tmp2;
-            Neg(tmp);
+            Neg(tmp, tmp);
             break;
         }
         }

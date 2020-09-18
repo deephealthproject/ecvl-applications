@@ -7,7 +7,8 @@
 # Copyright (c) 2019
 #           Federico Bolelli, <federico.bolelli@unimore.it>
 #           Costantino Grana, <costantino.grana@unimore.it>
-#			Stefano Allegretti, <stefano.allegretti@unimore.it>
+#           Stefano Allegretti, <stefano.allegretti@unimore.it>
+#           Laura Canalini, <laura.canalini@unimore.it>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +30,7 @@
 
 cmake_minimum_required (VERSION 3.13)
 
-project (ECVL_Viewer CXX)
+project (viewer CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "")
@@ -37,10 +38,6 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "")
 #--------------------------------------------------------------------------------------------------------
 # BEGIN: Check for c++17 support
 #--------------------------------------------------------------------------------------------------------
-# This should be done as follows but it doesn't work!?
-#set(CMAKE_CXX_STANDARD 17)
-#set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#set(CMAKE_CXX_EXTENSIONS OFF)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     include(CheckCXXCompilerFlag)
     CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
@@ -67,36 +64,36 @@ message(STATUS "C flags: ${CMAKE_C_FLAGS}")
 #--------------------------------------------------------------------------------------------------------
 
 if(MSVC)
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 #--------------------------------------------------------------------------------------------------------
-# BEGIN: static/dinamic runtime 												
+# BEGIN: static/dynamic runtime
 #--------------------------------------------------------------------------------------------------------
-set(ECVL_Viewer_STATIC ON CACHE BOOL "Whether to build static or dinamic libraries")
+set(viewer_STATIC ON CACHE BOOL "Whether to build static or dynamic libraries")
 
 if(MSVC)
-    if(ECVL_Viewer_STATIC)
+    if(viewer_STATIC)
         message(STATUS "Setting static runtime for MSVC")
         foreach(flag_var CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO) 
             string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
         endforeach(flag_var)
     else()
-	    message(STATUS "Setting dinamic runtime for MSVC")
+        message(STATUS "Setting dynamic runtime for MSVC")
         foreach(flag_var CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO) 
             string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
         endforeach(flag_var)
-	endif()
+    endif()
 endif()
 #--------------------------------------------------------------------------------------------------------
-# END: static/dinamic runtime										
+# END: static/dynamic runtime
 #--------------------------------------------------------------------------------------------------------
 
-add_executable(ECVL_Viewer_pj "viewer.cpp")
+add_executable(viewer "viewer.cpp")
 
-find_package(ECVL REQUIRED gui))
-if(ECVL_FOUND)   
-	target_link_libraries(ECVL_Viewer_pj ${ECVL_LIBRARIES})
-endif()
+find_package(ECVL REQUIRED gui)
+target_link_libraries(viewer ${ECVL_LIBRARIES})
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
+
+target_include_directories(viewer PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
