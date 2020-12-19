@@ -14,8 +14,8 @@ git clone --recursive https://github.com/wxWidgets/wxWidgets.git
 cd wxWidgets
 git checkout <last-release>
 mkdir bin && cd bin
-cmake -DwxUSE_LIBJPEG=OFF -DwxUSE_LIBTIFF=OFF -DwxUSE_RIBBON=OFF \
-  -DwxBUILD_SHARED=OFF -DwxBUILD_USE_STATIC_RUNTIME=ON -DCMAKE_INSTALL_PREFIX=install \
+cmake -DwxUSE_LIBJPEG=OFF -DwxUSE_LIBTIFF=OFF -DwxUSE_LIBPNG=OFF -DwxUSE_RIBBON=OFF -DwxUSE_SVG=OFF \
+  -DwxUSE_ARTPROVIDER_TANGO=OFF -DwxBUILD_SHARED=OFF -DwxBUILD_USE_STATIC_RUNTIME=ON -DCMAKE_INSTALL_PREFIX=install \
   ..
 cmake --build . --config Release --target INSTALL
 cmake --build . --config Debug --target INSTALL
